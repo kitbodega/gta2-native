@@ -82,16 +82,14 @@ void G2Platform_SetSurface(void* anw)
         ANativeWindow_release(old);
 }
 
-// Consulta thread-safe del estado del jugador para el overlay: true si el Ped
-// del jugador esta dentro de un vehiculo (joystick) o false si va a pie
-// (flechas). Solo lectura de un puntero/bool; el motor muta en su hilo.
+// True if the player ped is inside a vehicle (overlay shows joystick vs arrows).
 extern "C" bool G2Platform_InVehicle()
 {
     if (!gGame_0x40_67E008 || !gGame_0x40_67E008->field_38_orf1) return false;
     Player* p = gGame_0x40_67E008->field_38_orf1;
     Ped* ped = p->field_2C4_player_ped;
     if (!ped) return false;
-    return __atomic_load_n(&ped->field_16C_car, __ATOMIC_RELAXED) != 0;
+    return ped->field_16C_car != 0;
 }
 
 extern "C" void G2Platform_DeleteRegistrySubtree(const char* path);
@@ -459,7 +457,6 @@ static u32 CC gbh_real_registerpalette(s32 palId, DWORD* pData)
     }
 
     WORD* pAllocatedData = (WORD*)malloc(256 * 2 * sizeof(WORD));
-    if (!pAllocatedData) return -1;
     gGbhPals[palId].mPOriginalData = pData - 16384;
     gGbhPals[palId].mbLoaded = 1;
     gGbhPals[palId].mPData = pAllocatedData;
@@ -593,20 +590,13 @@ static void* gles_ensure_context()
 static unsigned fast_content_hash(const BYTE* p, size_t n)
 {
     unsigned h = 2166136261u;
-    if (n == 0) return h;
     size_t stride = n / 4096 + 1;
     for (size_t i = 0; i < n; i += stride)
         h = (h ^ p[i]) * 16777619u;
-    h = (h ^ p[n - 1]) * 16777619u;
-    h = (h ^ (unsigned)n) * 16777619u;
     return h;
 }
 
-// Dilata el color de los texeles opacos hacia los transparentes: con el
-// filtrado GL_LINEAR, muestrear cerca de un texel transparente (0,0,0,0)
-// mezclaria hacia negro y haria halos oscuros en los bordes de sprites.
-// Rellenar los transparentes con el color medio vecino (manteniendo A=0)
-// da bordes suaves sin fringing.
+// Spread opaque texel colors into transparent neighbors to prevent dark halos with GL_LINEAR filtering.
 static void gles_alpha_bleed(unsigned char* rgba, int w, int h)
 {
     unsigned char* tmp = (unsigned char*)malloc((size_t)w * h * 4);
