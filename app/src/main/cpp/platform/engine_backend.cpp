@@ -547,11 +547,16 @@ static void* gles_ensure_context()
     {
         std::lock_guard<std::mutex> lock(gVidMutex);
         win = gSurface;
+        if (win) ANativeWindow_acquire(win);
     }
     if (gGlesCtx)
     {
         // Misma ventana: contexto valido.
-        if (win == gGlesWin) return gGlesCtx;
+        if (win == gGlesWin)
+        {
+            if (win) ANativeWindow_release(win);
+            return gGlesCtx;
+        }
         // La superficie se destruyo (HOME) o cambio (reanudar): el EGL
         // surface apunta a una ventana muerta -> al reanudar la pantalla se
         // quedaba negra (solo el overlay se veia). Se destruye el contexto en
@@ -569,7 +574,7 @@ static void* gles_ensure_context()
             ANativeWindow_release(gGlesWin);
             gGlesWin = 0;
         }
-        if (!win) return 0;
+        if (!win) { ANativeWindow_release(win); return 0; }
     }
     else if (!win)
     {
@@ -578,12 +583,14 @@ static void* gles_ensure_context()
     gGlesCtx = gles_create(win);
     if (gGlesCtx)
     {
-        ANativeWindow_acquire(win);
         gGlesWin = win;
         __android_log_print(ANDROID_LOG_INFO, LOGT, "GLES contexto listo (render nativo)");
     }
     else
+    {
         __android_log_print(ANDROID_LOG_ERROR, LOGT, "GLES contexto FALLO: se usa rasterizador CPU");
+        ANativeWindow_release(win);
+    }
     return gGlesCtx;
 }
 
@@ -631,6 +638,7 @@ static void gles_alpha_bleed(unsigned char* rgba, int w, int h)
                     o[0] = (unsigned char)(rr / n);
                     o[1] = (unsigned char)(gg / n);
                     o[2] = (unsigned char)(bb / n);
+                    o[3] = 1;
                     any = true;
                 }
             }
@@ -2489,7 +2497,7 @@ static void G2_PlayIntroMovie(const char* path)
     }
 
     G2MvHeader h;
-    if (fread(&h, 1, sizeof(h), f) != sizeof(h) || memcmp(h.magic, "G2MV", 4) != 0 || h.pixfmt != 1)
+    if (fread(&h, 1, sizeof(h), f) != sizeof(h) || memcmp(h.magic, "G2MV", 4) != 0 || h.pixfmt != 1 || h.ver != 2)
     {
         fclose(f);
         __android_log_print(ANDROID_LOG_INFO, LOGT, "intro: header invalido");
@@ -2570,12 +2578,12 @@ static void G2_PlayIntroMovie(const char* path)
             {
                 for (u32 y = 0; y < hh && y < (u32)gFBH; y++)
                 {
-                    u32 sy = (y * hh) / (u32)gFBH;
+                    u32 sy = (y * gFBH) / hh;
                     const u16* srow = (const u16*)cur + sy * w;
                     u16* drow = gFramebuffer + y * gFBStride;
                     for (u32 x = 0; x < w && x < (u32)gFBW; x++)
                     {
-                        u32 sx = (x * w) / (u32)gFBW;
+                        u32 sx = (x * gFBW) / w;
                         drow[x] = srow[sx];
                     }
                 }

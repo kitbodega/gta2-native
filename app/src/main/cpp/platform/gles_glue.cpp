@@ -160,6 +160,13 @@ void* gles_create(void* anw)
     eglSwapInterval(dpy, 1);
 
     GlesCtx* gc = (GlesCtx*)calloc(1, sizeof(GlesCtx));
+    if (!gc)
+    {
+        eglDestroyContext(dpy, ctx);
+        eglDestroySurface(dpy, sur);
+        eglTerminate(dpy);
+        return 0;
+    }
     gc->display = dpy;
     gc->surface = sur;
     gc->context = ctx;
@@ -346,6 +353,7 @@ unsigned gles_upload_texture(void* ctx, int w, int h, const void* rgba)
 int gles_upload_texture_into(void* ctx, unsigned tex, int w, int h, const void* rgba)
 {
     if (!ctx || !tex || !rgba || w <= 0 || h <= 0) return 0;
+    glGetError();
     glBindTexture(GL_TEXTURE_2D, tex);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
@@ -462,7 +470,12 @@ void gles_end_frame(void* ctx)
         if (sErrN++ < 60)
             __android_log_print(ANDROID_LOG_ERROR, LOGT, "FRAME ERR %d", (int)err);
     }
-    eglSwapBuffers(gc->display, gc->surface);
+    if (!eglSwapBuffers(gc->display, gc->surface))
+    {
+        static int sSwapErr = 0;
+        if (sSwapErr++ < 10)
+            __android_log_print(ANDROID_LOG_ERROR, LOGT, "SWAP ERR %d", (int)eglGetError());
+    }
     // Borrados diferidos: ya con el lote presentado, ninguna referencia activa.
     if (!gles_delq.empty())
     {
