@@ -1,0 +1,80 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.bodega.gta2'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.bodega.gta2'
+        minSdkVersion 26
+        targetSdkVersion 28
+        versionCode 1
+        versionName "0.1.0"
+
+        externalNativeBuild {
+            cmake {
+cppFlags '-std=c++17 -fsigned-char -D_FORTIFY_SOURCE=2'
+            }
+        }
+        ndk {
+            abiFilters 'armeabi-v7a'
+        }
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('C:/Users/Admin/Downloads/gta2-build/gta2.keystore')
+            storePassword 'gta2pass'
+            keyAlias 'gta2'
+            keyPassword 'gta2pass'
+            v1SigningEnabled true
+            v2SigningEnabled true
+        }
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            ndk {
+                abiFilters 'armeabi-v7a'
+            }
+        }
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled false
+            ndk {
+                abiFilters 'armeabi-v7a'
+            }
+        }
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = '17'
+    }
+
+    ndkVersion '26.1.10909125'
+
+    externalNativeBuild {
+        cmake {
+            version '3.22.1'
+            path 'src/main/cpp/CMakeLists.txt'
+        }
+    }
+}
+
+dependencies {
+    implementation 'com.github.zhkl0228:unicorn:1.0.15'
+}
