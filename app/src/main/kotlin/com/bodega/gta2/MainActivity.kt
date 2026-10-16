@@ -140,8 +140,9 @@ class MainActivity : Activity() {
 
     private fun maybeStart() {
         if (!started && gameLoaded && surfaceReady) {
-            started = true
-            nativeStart()
+            if (nativeStart()) {
+                started = true
+            }
         }
     }
 

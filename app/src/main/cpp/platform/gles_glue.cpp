@@ -97,7 +97,11 @@ static const char* gVS =
     "}\n";
 
 static const char* gFS =
+    "#ifdef GL_FRAGMENT_PRECISION_HIGH\n"
     "precision highp float;\n"
+    "#else\n"
+    "precision mediump float;\n"
+    "#endif\n"
     "varying vec3 vSTW;\n"
     "uniform sampler2D uTex;\n"
     "uniform vec4 uTint;\n"
@@ -358,7 +362,11 @@ int gles_upload_texture_into(void* ctx, unsigned tex, int w, int h, const void* 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     GLenum err = glGetError();
     if (err != GL_NO_ERROR)
+    {
         __android_log_print(ANDROID_LOG_ERROR, LOGT, "TEXUPLOAD ERR %d (w=%d h=%d tex=%u)", (int)err, w, h, tex);
+        glBindTexture(GL_TEXTURE_2D, 0);
+        return 0;
+    }
     glBindTexture(GL_TEXTURE_2D, 0);
     return 1;
 }

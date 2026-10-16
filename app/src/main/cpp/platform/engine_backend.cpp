@@ -91,7 +91,7 @@ extern "C" bool G2Platform_InVehicle()
     Player* p = gGame_0x40_67E008->field_38_orf1;
     Ped* ped = p->field_2C4_player_ped;
     if (!ped) return false;
-    return ped->field_16C_car != 0;
+    return __atomic_load_n(&ped->field_16C_car, __ATOMIC_RELAXED) != 0;
 }
 
 extern "C" void G2Platform_DeleteRegistrySubtree(const char* path);
@@ -459,6 +459,7 @@ static u32 CC gbh_real_registerpalette(s32 palId, DWORD* pData)
     }
 
     WORD* pAllocatedData = (WORD*)malloc(256 * 2 * sizeof(WORD));
+    if (!pAllocatedData) return -1;
     gGbhPals[palId].mPOriginalData = pData - 16384;
     gGbhPals[palId].mbLoaded = 1;
     gGbhPals[palId].mPData = pAllocatedData;
@@ -592,9 +593,12 @@ static void* gles_ensure_context()
 static unsigned fast_content_hash(const BYTE* p, size_t n)
 {
     unsigned h = 2166136261u;
+    if (n == 0) return h;
     size_t stride = n / 4096 + 1;
     for (size_t i = 0; i < n; i += stride)
         h = (h ^ p[i]) * 16777619u;
+    h = (h ^ p[n - 1]) * 16777619u;
+    h = (h ^ (unsigned)n) * 16777619u;
     return h;
 }
 
@@ -615,7 +619,7 @@ static void gles_alpha_bleed(unsigned char* rgba, int w, int h)
         {
             for (int x = 0; x < w; x++)
             {
-                unsigned char* p = tmp + ((size_t)y * w + x) * 4;
+                const unsigned char* p = tmp + ((size_t)y * w + x) * 4;
                 if (p[3] != 0) continue;
                 int rr = 0, gg = 0, bb = 0, n = 0;
                 for (int dy = -1; dy <= 1; dy++)
@@ -637,7 +641,6 @@ static void gles_alpha_bleed(unsigned char* rgba, int w, int h)
                     o[0] = (unsigned char)(rr / n);
                     o[1] = (unsigned char)(gg / n);
                     o[2] = (unsigned char)(bb / n);
-                    p[0] = o[0]; p[1] = o[1]; p[2] = o[2];
                     any = true;
                 }
             }
