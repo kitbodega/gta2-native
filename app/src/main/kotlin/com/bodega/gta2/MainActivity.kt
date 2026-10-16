@@ -94,21 +94,51 @@ class MainActivity : Activity() {
         bootIfReady()
     }
 
+    private fun extractAssetsIfNeeded() {
+        val gameDir = File(filesDir, "game/GTA2")
+        val marker = File(gameDir, ".extracted")
+        if (marker.exists()) return
+
+        gameDir.mkdirs()
+        val assetManager = assets
+
+        copyAsset("gta2.exe", File(gameDir, "gta2.exe"))
+
+        val dataSrc = "data"
+        val dataDst = File(gameDir, "data")
+        dataDst.mkdirs()
+        val assetFiles = assetManager.list(dataSrc) ?: return
+        for (name in assetFiles) {
+            copyAsset("$dataSrc/$name", File(dataDst, name))
+        }
+
+        marker.writeText("ok")
+    }
+
+    private fun copyAsset(assetPath: String, dest: File) {
+        if (dest.exists() && dest.length() > 0) return
+        try {
+            assets.open(assetPath).use { input ->
+                dest.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to extract $assetPath: ${e.message}")
+        }
+    }
+
     private fun findGameData(): String? {
         val candidates = listOf(
+            "${filesDir}/game/GTA2",
             "/storage/emulated/0/Download/GTA2",
-            "/storage/emulated/0/Download/GTA2/gta2.exe",
-            "${filesDir}/game/GTA2/gta2.exe",
             getExternalFilesDir(null)?.absolutePath
         )
         for (c in candidates) {
             if (c == null) continue
             val f = File(c)
-            if (f.isFile) {
-                if (f.length() > 0) return f.parentFile?.absolutePath ?: c
-            } else if (f.isDirectory) {
-                if (File(f, "data").isDirectory) return f.absolutePath
-                if (File(f, "gta2.exe").isFile) return f.absolutePath
+            if (f.isDirectory) {
+                if (File(f, "data").isDirectory && File(f, "gta2.exe").isFile) return f.absolutePath
             }
         }
         return null
@@ -116,12 +146,8 @@ class MainActivity : Activity() {
 
     private fun bootIfReady() {
         if (gameLoaded) return
-        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            Log.i(TAG, "Sin permiso de almacenamiento.")
-            return
-        }
+
+        extractAssetsIfNeeded()
 
         val dir = findGameData()
         if (dir == null) {

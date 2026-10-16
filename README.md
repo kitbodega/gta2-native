@@ -82,7 +82,6 @@ Signed with the keystore at `gta2.keystore` (alias: `gta2`).
 ## Related Projects
 
 - [gta2_re](https://github.com/CriminalRETeam/gta2_re) — GTA2 decompilation (C/C++)
-- [GTA2Hax](https://github.com/CriminalRETeam/gta2_re/tree/master/3rdParty/GTA2Hax) — DirectX hooking framework
 
 ## License
 
