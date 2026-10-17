@@ -604,7 +604,6 @@ static void gles_alpha_bleed(unsigned char* rgba, int w, int h)
                     o[0] = (unsigned char)(rr / n);
                     o[1] = (unsigned char)(gg / n);
                     o[2] = (unsigned char)(bb / n);
-                    o[3] = 1;
                     any = true;
                 }
             }
