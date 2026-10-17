@@ -79,7 +79,7 @@ void G2Platform_SetSurface(void* anw)
         ANativeWindow_release(old);
 }
 
-extern std::atomic<bool> g_stop;
+extern "C" std::atomic<bool> g_stop;
 extern "C" bool G2Platform_InVehicle()
 {
     if (!gGame_0x40_67E008 || !gGame_0x40_67E008->field_38_orf1) return false;

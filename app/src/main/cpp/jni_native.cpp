@@ -17,8 +17,8 @@ extern "C" bool G2Platform_InVehicle(void);
 
 #define LOGT "GTA2-ndk"
 
-static std::atomic<bool> g_running{false};
-static std::atomic<bool> g_stop{false};
+std::atomic<bool> g_running{false};
+std::atomic<bool> g_stop{false};
 
 static void* engineThread(void*)
 {
