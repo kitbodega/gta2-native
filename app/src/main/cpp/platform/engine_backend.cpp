@@ -75,11 +75,11 @@ void G2Platform_SetSurface(void* anw)
         gSurface = (ANativeWindow*)anw;
     }
 
-
-    if (old && old != gSurface)
+    if (old && old != anw)
         ANativeWindow_release(old);
 }
 
+extern std::atomic<bool> g_stop;
 extern "C" bool G2Platform_InVehicle()
 {
     if (!gGame_0x40_67E008 || !gGame_0x40_67E008->field_38_orf1) return false;
@@ -2319,6 +2319,7 @@ u8 sub_4DA850()
             byte_6F5760 = 0;
         }
         bContinue = ExecuteGame_4DA780();
+        if (g_stop.load()) bContinue = 0;
         {
             static int dbgN = 0;
             if (((++dbgN % 6000) == 0) && gGame_0x40_67E008)

@@ -48,6 +48,7 @@ class MainActivity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         pollHandler.removeCallbacks(pollTask)
+        nativeStop()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
