@@ -79,6 +79,15 @@ Signed with the keystore at `gta2.keystore` (alias: `gta2`).
 | `build_tranche2.ps1` | Windows build script (tranche 2) |
 | `link_tranche1.ps1` | Link helper for tranche 1 |
 
+## Installation
+
+1. Install the APK from [releases](https.://github.com/kitbodega/gta2-native/releases)
+2. Download `gta2-data.zip` from the same release page
+3. Extract `gta2-data.zip` so that `/storage/emulated/0/Download/GTA2/data/` exists with all game files
+4. Launch the app — it will find the game data automatically
+
+> The game requires the original GTA2 `data/` folder. Without it the app will not start.
+
 ## Related Projects
 
 - [gta2_re](https://github.com/CriminalRETeam/gta2_re) — GTA2 decompilation (C/C++)
