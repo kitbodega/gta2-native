@@ -1,11 +1,8 @@
 #pragma once
-// Compat DirectInput 5 -> Android para el port nativo de GTA2.
-// Solo proporciona las declaraciones que las fuentes del motor necesitan
-// para COMPILAR. La entrada real se sustituirá por un backend Android.
+
 #include "wintypes.hpp"
 #include <string.h>
 
-// Backend de teclado emulado (implementado en wincompat.cpp).
 #if defined(__cplusplus)
 extern "C" {
 #endif
@@ -42,7 +39,6 @@ void G2_InputClear();
 #define DISCL_NONEXCLUSIVE      0x4
 #define DISCL_BACKGROUND_GRAB   0x2
 
-/* ---- Scancodes DirectInput (estandar) ---- */
 #define DIK_ESCAPE      0x01
 #define DIK_1           0x02
 #define DIK_2           0x03
@@ -139,7 +135,6 @@ void G2_InputClear();
 #define DIK_INSERT      0xD2
 #define DIK_BACKSPACE   0x0E
 
-/* ---- Guids ---- */
 #define DEFINE_DINPUT_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
     const GUID name = { l, (unsigned short)(w1), (unsigned short)(w2), { b1, b2, b3, b4, b5, b6, b7, b8 } }
 
@@ -242,7 +237,6 @@ typedef const DIDEVICEINSTANCEA* LPCDIDEVICEINSTANCEA;
 
 typedef BOOL(*LPDIENUMDEVICESCALLBACKA)(LPCDIDEVICEINSTANCEA lpddi, LPVOID pvRef);
 
-/* ---- Interfaces: stubs de compilacion ---- */
 struct IDirectInputDeviceA
 {
     inline HRESULT Release() { return S_OK; }

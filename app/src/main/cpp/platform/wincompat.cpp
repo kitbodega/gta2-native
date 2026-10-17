@@ -1,6 +1,10 @@
-// wincompat.cpp - capa de compatibilidad Win32 para el port nativo de GTA2.
+
 #include "windows.h"
 #include "io.h"
+#include <android/log.h>
+#ifndef ANDROID_LOG_DEBUG
+#define ANDROID_LOG_DEBUG 3
+#endif
 #include <types.hpp>
 #include <Dinput.h>
 #include <stdio.h>
@@ -21,7 +25,6 @@ const char* G2Platform_GetStorageDir() { return g_storageDir; }
 void G2Platform_SetGameDataDir(const char* dir) { snprintf(g_gameDataDir, sizeof(g_gameDataDir), "%s", dir); }
 const char* G2Platform_GetGameDataDir() { return g_gameDataDir; }
 
-// --- fopen shim: traduce backslashes a '/', y resuelve case-insensitive. ---
 #include <dlfcn.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -69,8 +72,8 @@ static int G2_KeyEqualCI(const char* a, const char* b)
 
 static int G2_ResolvePathCI(const char* path, char* out, size_t cap)
 {
-    // Divide por '/' y reconstruye resolviendo cada componente contra el
-    // directorio padre (case-insensitive). El resultado se escribe en 'out'.
+
+
     char dir[1024] = "";
     const char* p = path;
     size_t o = 0;
@@ -185,7 +188,7 @@ extern "C" FILE* fopen(const char* name, const char* mode)
 {
     char fixed[1024];
     G2_FixSlashes(fixed, sizeof(fixed), name);
-    // Remapea rutas con drive-letter tipo "C:/GTAUDIO/..." (musica) a data/GTAudio.
+
     if (fixed[1] == ':' && G2_KeyEqualCI(fixed + 2, "GTAUDIO"))
     {
         const char* rest = fixed + 3;
@@ -213,7 +216,7 @@ extern "C" FILE* fopen(const char* name, const char* mode)
         __android_log_print(ANDROID_LOG_INFO, "GTA2-port", "fopen OK [%s] size=%ld mode=%s", fixed, sz, mode);
         return f;
     }
-    // intento relativo al game data dir (por si cwd no es el del juego)
+
     const char* dataDir = G2Platform_GetGameDataDir();
     if (dataDir && dataDir[0] && fixed[0] != '/')
     {
@@ -225,7 +228,7 @@ extern "C" FILE* fopen(const char* name, const char* mode)
             return f;
         }
     }
-    // resolucion case-insensitive
+
     {
         char resolved[1200];
         memset(resolved, 0, sizeof(resolved));
@@ -386,19 +389,14 @@ extern "C" {
 HRESULT DirectInputCreateA(void* hinst, DWORD dwVersion, LPDIRECTINPUTA* lplpDirectInput, void* pUnkOuter)
 { (void)hinst; (void)dwVersion; (void)pUnkOuter; if (lplpDirectInput) *lplpDirectInput = GetFakeDirectInput(); return S_OK; }
 HRESULT DirectInput8Create(void* hinst, DWORD dwVersion, const GUID& rguid, void** ppvOut, void* pUnkOuter)
-{ (void)hinst; (void)dwVersion; (void)rguid; (void)pUnkOuter; if (ppvOut) *ppvOut = 0; return 0x80004001L; /* E_NOTIMPL */ }
-} // extern "C"
+{ (void)hinst; (void)dwVersion; (void)rguid; (void)pUnkOuter; if (ppvOut) *ppvOut = 0; return 0x80004001L;  }
+}
 
 static IDirectInputDeviceA g_fakeInputDevice;
 static IDirectInputA g_fakeDirectInput;
 IDirectInputDeviceA* GetFakeInputDevice() { return &g_fakeInputDevice; }
 IDirectInputA* GetFakeDirectInput() { return &g_fakeDirectInput; }
 
-// ---------------------------------------------------------------------------
-// Backend de teclado emulado (DirectInput): estado 256B + cola de eventos.
-// El puente nativo (G2_InputKey) alimenta la cola y el estado; el motor
-// consume via GetDeviceState/GetDeviceData del dispositivo fake.
-// ---------------------------------------------------------------------------
 #define G2_KB_EVENTS 512
 
 static pthread_mutex_t g_kbLock = PTHREAD_MUTEX_INITIALIZER;
@@ -524,9 +522,6 @@ unsigned long GetFileSize(void* hFile, unsigned long* lpFileSizeHigh)
 
 #include <stdarg.h>
 
-// MSVC-style swprintf(wchar_t* buf, const wchar_t* fmt, ...) without a count arg.
-// Replaces bionic's swprintf(wchar_t*, size_t, ...) which is ABI-incompatible
-// with -fshort-wchar (2-byte wchar_t). Implementation formats into a wide buffer.
 int GTA2_swprintf(wchar_t* buf, const wchar_t* fmt, ...)
 {
     va_list args;
@@ -543,9 +538,9 @@ int GTA2_swprintf(wchar_t* buf, const wchar_t* fmt, ...)
             continue;
         }
 
-        f++; // skip '%'
+        f++;
 
-        // Flags
+
         int leftAlign = 0, zeroPad = 0;
         int plusSign = 0, spaceSign = 0, altForm = 0;
         int width = 0;
@@ -564,14 +559,14 @@ int GTA2_swprintf(wchar_t* buf, const wchar_t* fmt, ...)
             }
         }
 
-        // Width
+
         while (*f >= L'0' && *f <= L'9')
         {
             width = width * 10 + (*f - L'0');
             f++;
         }
 
-        // Length modifiers not needed by the game; skip them
+
         if (*f == L'l' || *f == L'h')
         {
             f++;
@@ -595,7 +590,7 @@ int GTA2_swprintf(wchar_t* buf, const wchar_t* fmt, ...)
                 while (t) { t /= 10; digits++; }
                 int zeros = (zeroPad && !leftAlign) ? width - tmpLen - digits : 0;
                 if (zeros < 0) zeros = 0;
-                // sign first when left aligning with zero pad
+
                 for (int i = 0; i < zeros && !leftAlign; i++) tmp[tmpLen++] = L'0';
                 static const wchar_t* dz = L"0123456789";
                 wchar_t dig[32]; int dn = 0;
@@ -673,7 +668,7 @@ int GTA2_swprintf(wchar_t* buf, const wchar_t* fmt, ...)
         }
         f++;
 
-        // width padding on the right if left-justified
+
         for (int i = 0; i < width - tmpLen && !leftAlign; i++) *out++ = L' ';
         for (int i = 0; i < tmpLen; i++) *out++ = tmp[i];
         for (int i = 0; i < width - tmpLen && leftAlign; i++) *out++ = L' ';
@@ -684,7 +679,6 @@ int GTA2_swprintf(wchar_t* buf, const wchar_t* fmt, ...)
     return (int)(out - buf);
 }
 
-/* ---- _findfirst/_findnext/_findclose (io.h CRT) ---- */
 typedef struct _g2_findstate
 {
     DIR* dir;
@@ -725,13 +719,13 @@ static int _g2_fnmatch_pattern(const char* pat, const char* name)
 
 static int _g2_fnmatch_entry(const char* pat, const char* name)
 {
-    if (name[0] == '.') return 0; // skip hidden (. and ..)
+    if (name[0] == '.') return 0;
     return _g2_fnmatch_pattern(pat, name);
 }
 
 long _findfirst(const char* pattern, struct _finddata_t* fd)
 {
-    // separate directory part from filename part
+
     char dirPath[260] = ".";
     const char* slash = strrchr(pattern, '/');
     const char* bslash = strrchr(pattern, '\\');
@@ -757,7 +751,7 @@ long _findfirst(const char* pattern, struct _finddata_t* fd)
     if (!st->dir)
     {
         __android_log_print(ANDROID_LOG_DEBUG, "GTA2-find", "opendir failed: dir='%s' errno=%d", dirPath, errno);
-        // fallback: resolve case-insensitive relativo al data dir
+
         char alt[1024];
         snprintf(alt, sizeof(alt), "%s/%s", G2Platform_GetGameDataDir(), dirPath);
         char altResolved[1024];
@@ -843,7 +837,7 @@ BOOL GetKeyboardLayoutNameA(char* pwszKLID)
 {
     if (pwszKLID)
     {
-        strcpy(pwszKLID, "00000409"); // US English layout id
+        strcpy(pwszKLID, "00000409");
     }
     return 1;
 }
@@ -872,9 +866,6 @@ wchar_t* _itow(int value, wchar_t* buffer, int radix)
     return buffer;
 }
 
-// --- Interposicion de funciones wide: bionic usa wchar_t de 4 bytes,
-// pero el motor compila con -fshort-wchar (2 bytes). Estas versiones
-// operan sobre wchar_t de 2 bytes sin pasarse del buffer. ---
 extern "C" {
 
 size_t wcslen(const wchar_t* s)
@@ -1000,4 +991,4 @@ wchar_t* wcsstr(wchar_t* haystack, const wchar_t* needle)
     return 0;
 }
 
-} // extern "C"
+}

@@ -1,5 +1,5 @@
 #pragma once
-// Tipos y constantes minimales estilo Windows para el port nativo ARM64 de GTA2.
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -230,7 +230,6 @@ typedef HKEY* PHKEY;
 #define DIGDD_PEEK 0x2
 #define INFINITE 0xFFFFFFFFu
 
-/* DirectInput/DirectDraw punteros opacos para winmain.cpp */
 typedef struct IDirectDraw*          LPDIRECTDRAW;
 typedef struct IDirectDrawSurface*   LPDIRECTDRAWSURFACE;
 typedef struct IDirectDraw2*         LPDIRECTDRAW2;
@@ -242,7 +241,6 @@ typedef struct IDirectInputDeviceA*  LPDIRECTINPUTDEVICEA;
 typedef struct DIDEVICEOBJECTDATA DIDEVICEOBJECTDATA;
 typedef struct DIDATAFORMAT DIDATAFORMAT;
 
-/* DEFINE_GUID: definicion real (INITGUID-style) para que &GUID_SysKeyboard funcione */
 #define DEFINE_GUID(name, l, w1, w2, b1, b2, b3, b4, b5, b6, b7, b8) \
     const GUID name = { l, w1, w2, { b1, b2, b3, b4, b5, b6, b7, b8 } }
 

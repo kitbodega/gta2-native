@@ -1,14 +1,4 @@
-// mss_stubs.cpp - implementacion real del subconjunto de Miles Sound System
-// (AIL) que usa GTA2, sobre OpenSL ES (Android).
-//
-//   * Salida: PCM int16 estereo a 22050 Hz via SLAndroidSimpleBufferQueue.
-//   * Sample voices (SFX): buffer RAW compartido, 8-bit unsigned mono, con
-//     playback rate / volume / pan / loop block (semantica MSS).
-//   * Streams (musica/voces): WAV decodificado a PCM int16 estereo en memoria
-//     al abrir. Soporta WAV PCM y IMA ADPCM (format 0x11, los de GTA2).
-//
-// El mixer corre en el callback de OpenSL (otro hilo); el estado se protege
-// con un mutex global.
+
 
 #include "mss.h"
 #include <string.h>
@@ -43,10 +33,10 @@ struct Sample
     S32     rate;
     S32     volume;
     S32     pan;
-    S32     loop_count;   // 0 = infinito, 1 = one-shot, N = N bucles
+    S32     loop_count;
     S32     loops_left;
     U32     loop_start_byte;
-    U32     loop_end_byte; // AIL_EOF = fin del buffer
+    U32     loop_end_byte;
 };
 
 struct Stream
@@ -54,13 +44,13 @@ struct Stream
     bool    used;
     bool    playing;
     U32     status;
-    short*  pcm;          // interleaved L/R int16
-    U32     frameCount;   // frames (por canal)
-    U32     rate;         // rate del WAV original
-    double  pos;          // frame actual
+    short*  pcm;
+    U32     frameCount;
+    U32     rate;
+    double  pos;
     S32     volume;
-    S32     loop_count;   // 0 = infinito
-    S32     playback_rate; // 0 = usar rate del WAV
+    S32     loop_count;
+    S32     playback_rate;
 };
 
 struct Driver
@@ -102,12 +92,8 @@ static double volGain(S32 vol)
     if (vol <= 0) return 0.0;
     if (vol > 127) vol = 127;
     double g = vol / 127.0;
-    return g * g; // curva suave (perceptual-ish)
+    return g * g;
 }
-
-// ---------------------------------------------------------------------------
-// OpenSL ES
-// ---------------------------------------------------------------------------
 
 static SLObjectItf g_engineObj = 0;
 static SLEngineItf g_engine = 0;
@@ -142,7 +128,7 @@ static void openSlStart(Driver* d)
     SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
     SLDataFormat_PCM format_pcm = {
         SL_DATAFORMAT_PCM, 2,
-        (SLuint32)((int)g_outRate * 1000),  // samplesPerSec va en milihercios
+        (SLuint32)((int)g_outRate * 1000),
         SL_PCMSAMPLEFORMAT_FIXED_16, SL_PCMSAMPLEFORMAT_FIXED_16,
         SL_SPEAKER_FRONT_LEFT | SL_SPEAKER_FRONT_RIGHT,
         SL_BYTEORDER_LITTLEENDIAN
@@ -184,10 +170,6 @@ static void openSlStop()
     }
 }
 
-// ---------------------------------------------------------------------------
-// Mixer (corre en el hilo de audio)
-// ---------------------------------------------------------------------------
-
 static void mixOneFrame(short* out)
 {
     long long accL = 0, accR = 0;
@@ -197,7 +179,7 @@ static void mixOneFrame(short* out)
         Sample* s = &g_samples[i];
         if (!s->used || !s->playing || !s->data || !s->len) continue;
 
-        double step = 2.0 * s->rate / g_outRate; // 16-bit mono: 2 bytes por muestra
+        double step = 2.0 * s->rate / g_outRate;
         double npos = s->pos + step;
 
         U32 endB = (s->loop_end_byte == AIL_EOF) ? s->len : s->loop_end_byte;
@@ -245,9 +227,9 @@ static void mixOneFrame(short* out)
                 s->status = SMP_DONE;
                 continue;
             }
-            ip = (int)s->len - 2; // ultimo byte par valido
+            ip = (int)s->len - 2;
         }
-        short v16 = (short)((U8)s->data[ip] | ((U8)s->data[ip + 1] << 8)); // S16LE mono
+        short v16 = (short)((U8)s->data[ip] | ((U8)s->data[ip + 1] << 8));
         double gv = volGain(s->volume);
         if (gv <= 0.0) continue;
         double ang = s->pan * (M_PI / 2.0 / 127.0);
@@ -300,7 +282,7 @@ static void mixOneFrame(short* out)
     out[1] = clampShort((long long)(accR * mg));
 }
 
-static void g_bqCallback(SLAndroidSimpleBufferQueueItf bq, void* /*ctx*/)
+static void g_bqCallback(SLAndroidSimpleBufferQueueItf bq, void* )
 {
     short* out = g_driver.bufs[g_driver.curBuf];
     pthread_mutex_lock(&g_audioLock);
@@ -312,7 +294,7 @@ static void g_bqCallback(SLAndroidSimpleBufferQueueItf bq, void* /*ctx*/)
     g_driver.curBuf ^= 1;
     (*bq)->Enqueue(bq, out, FRAMES * 2 * sizeof(short));
 
-    // DEBUG temporal: volcar la salida del mixer (interleaved int16) a archivo.
+
     static FILE* g_dump = 0;
     static U32 g_dumpLeft = 0;
     if (!g_dump)
@@ -342,10 +324,6 @@ static void g_bqCallback(SLAndroidSimpleBufferQueueItf bq, void* /*ctx*/)
     }
 }
 
-// ---------------------------------------------------------------------------
-// Decodificador WAV (PCM + IMA ADPCM) -> int16 estereo interleaved
-// ---------------------------------------------------------------------------
-
 static int imaDecode(int* pred, int* index, int nib)
 {
     int step = g_imaStep[*index];
@@ -362,8 +340,6 @@ static int imaDecode(int* pred, int* index, int nib)
     return *pred;
 }
 
-// Decodifica un WAV completo de 'buf' a est*ereo int16. Devuelve pcm (malloc) y
-// frameCount. Devuelve 0 si el formato no se puede decodificar.
 static short* decodeWav(const U8* buf, U32 size, U32* rateOut, U32* framesOut)
 {
     *rateOut = 0; *framesOut = 0;
@@ -378,7 +354,7 @@ static short* decodeWav(const U8* buf, U32 size, U32* rateOut, U32* framesOut)
     {
         U32 cid = *(const U32*)(buf + p);
         U32 csz = (U32)(buf[p + 4] | (buf[p + 5] << 8) | (buf[p + 6] << 16) | (buf[p + 7] << 24));
-        if (cid == 0x20746D66u) // 'fmt '
+        if (cid == 0x20746D66u)
         {
             if (csz >= 16 && p + 8 + 16 <= size)
             {
@@ -389,7 +365,7 @@ static short* decodeWav(const U8* buf, U32 size, U32* rateOut, U32* framesOut)
                 bits = (U16)(buf[p + 22] | (buf[p + 23] << 8));
             }
         }
-        else if (cid == 0x61746164u) // 'data'
+        else if (cid == 0x61746164u)
         {
             data = buf + p + 8;
             dataSize = csz;
@@ -403,9 +379,9 @@ static short* decodeWav(const U8* buf, U32 size, U32* rateOut, U32* framesOut)
 
     U32 frames = 0;
     short* pcm = 0;
-    U32 outCh = nCh; // canales en el buffer temporal (1 o 2)
+    U32 outCh = nCh;
 
-    if (fmtTag == 1) // PCM
+    if (fmtTag == 1)
     {
         if (bits == 16)
         {
@@ -438,10 +414,10 @@ static short* decodeWav(const U8* buf, U32 size, U32* rateOut, U32* framesOut)
         }
         else return 0;
     }
-    else if (fmtTag == 0x11) // IMA ADPCM
+    else if (fmtTag == 0x11)
     {
         if (blockAlign < (U16)(4 * nCh)) return 0;
-        U32 spb = ((blockAlign / nCh) - 4) * 2;            // muestras por canal por bloque
+        U32 spb = ((blockAlign / nCh) - 4) * 2;
         U32 numBlocks = dataSize / blockAlign;
         U32 total = numBlocks * spb;
         pcm = (short*)malloc((size_t)total * outCh * sizeof(short));
@@ -481,7 +457,7 @@ static short* decodeWav(const U8* buf, U32 size, U32* rateOut, U32* framesOut)
         return 0;
     }
 
-    // Normalizar a est*ereo: si era mono (outCh==1), expandir L->R.
+
     if (outCh == 1)
     {
         short* st = (short*)malloc((size_t)frames * 2 * sizeof(short));
@@ -500,11 +476,7 @@ static short* decodeWav(const U8* buf, U32 size, U32* rateOut, U32* framesOut)
     return pcm;
 }
 
-// ---------------------------------------------------------------------------
-// AIL API
-// ---------------------------------------------------------------------------
-
-} // namespace
+}
 
 extern "C"
 {
@@ -526,18 +498,18 @@ M3DRESULT AIL_shutdown(void)
     return M3D_NOERR;
 }
 
-void AIL_set_digital_master_volume(HDIGDRIVER /*drvr*/, S32 volume)
+void AIL_set_digital_master_volume(HDIGDRIVER , S32 volume)
 {
     pthread_mutex_lock(&g_audioLock);
     g_driver.master_volume = volume;
     pthread_mutex_unlock(&g_audioLock);
 }
 
-void AIL_set_preference(U32 /*number*/, S32 /*value*/)
+void AIL_set_preference(U32 , S32 )
 {
 }
 
-S32 AIL_waveOutOpen(HDIGDRIVER* drvr, U32 /*device*/, S32 /*flags*/, WAVEFORMAT* wf)
+S32 AIL_waveOutOpen(HDIGDRIVER* drvr, U32 , S32 , WAVEFORMAT* wf)
 {
     if (!drvr) return 1;
     pthread_mutex_lock(&g_audioLock);
@@ -578,7 +550,7 @@ S32 AIL_waveOutOpen(HDIGDRIVER* drvr, U32 /*device*/, S32 /*flags*/, WAVEFORMAT*
     return 0;
 }
 
-void AIL_waveOutClose(HDIGDRIVER /*drvr*/)
+void AIL_waveOutClose(HDIGDRIVER )
 {
     pthread_mutex_lock(&g_audioLock);
     if (g_driverOpen)
@@ -600,9 +572,9 @@ void AIL_mem_free_lock(void* mem)
     free(mem);
 }
 
-S32 AIL_enumerate_3D_providers(HPROENUM* /*enumerator*/, HPROVIDER* /*prov*/, char** /*name*/)
+S32 AIL_enumerate_3D_providers(HPROENUM* , HPROVIDER* , char** )
 {
-    return 0; // sin proveedores 3D -> GTA2 usa solo 2D
+    return 0;
 }
 
 U32 AIL_stream_status(HSTREAM stream)
@@ -614,7 +586,7 @@ U32 AIL_stream_status(HSTREAM stream)
     return s;
 }
 
-HSAMPLE AIL_allocate_sample_handle(HDIGDRIVER /*drvr*/)
+HSAMPLE AIL_allocate_sample_handle(HDIGDRIVER )
 {
     pthread_mutex_lock(&g_audioLock);
     HSAMPLE h = 0;
@@ -651,10 +623,10 @@ void AIL_init_sample(HSAMPLE samp)
     pthread_mutex_unlock(&g_audioLock);
 }
 
-void AIL_set_sample_type(HSAMPLE samp, S32 /*format*/, S32 /*bits*/)
+void AIL_set_sample_type(HSAMPLE samp, S32 , S32 )
 {
-    // Los SFX de GTA2 (RAW) son 16-bit signed LE mono; se ignora el formato
-    // declarado (el juego pasa MONO_16 en los canales).
+
+
     (void)samp;
 }
 
@@ -705,7 +677,7 @@ void AIL_close_stream(HSTREAM stream)
     pthread_mutex_unlock(&g_audioLock);
 }
 
-void AIL_release_3D_sample_handle(H3DSAMPLE /*samp*/)
+void AIL_release_3D_sample_handle(H3DSAMPLE )
 {
 }
 
@@ -801,63 +773,63 @@ void AIL_end_sample(HSAMPLE samp)
     pthread_mutex_unlock(&g_audioLock);
 }
 
-U32 AIL_set_3D_sample_info(H3DSAMPLE /*samp*/, AILSOUNDINFO* /*info*/)
+U32 AIL_set_3D_sample_info(H3DSAMPLE , AILSOUNDINFO* )
 {
     return 1;
 }
 
-void AIL_set_3D_sample_volume(H3DSAMPLE /*samp*/, S32 /*volume*/)
+void AIL_set_3D_sample_volume(H3DSAMPLE , S32 )
 {
 }
 
-void AIL_set_3D_position(H3DPOBJECT /*obj*/, F32 /*x*/, F32 /*y*/, F32 /*z*/)
+void AIL_set_3D_position(H3DPOBJECT , F32 , F32 , F32 )
 {
 }
 
-void AIL_set_3D_sample_distances(H3DSAMPLE /*samp*/, F32 /*max_d*/, F32 /*min_d*/, F32 /*max_v*/, F32 /*min_v*/)
+void AIL_set_3D_sample_distances(H3DSAMPLE , F32 , F32 , F32 , F32 )
 {
 }
 
-void AIL_set_3D_sample_playback_rate(H3DSAMPLE /*samp*/, S32 /*rate*/)
+void AIL_set_3D_sample_playback_rate(H3DSAMPLE , S32 )
 {
 }
 
-void AIL_set_3D_sample_loop_block(H3DSAMPLE /*samp*/, S32 /*loop_start*/, S32 /*loop_end*/)
+void AIL_set_3D_sample_loop_block(H3DSAMPLE , S32 , S32 )
 {
 }
 
-void AIL_set_3D_sample_loop_count(H3DSAMPLE /*samp*/, S32 /*count*/)
+void AIL_set_3D_sample_loop_count(H3DSAMPLE , S32 )
 {
 }
 
-U32 AIL_3D_sample_status(H3DSAMPLE /*samp*/)
+U32 AIL_3D_sample_status(H3DSAMPLE )
 {
     return SMP_DONE;
 }
 
-void AIL_start_3D_sample(H3DSAMPLE /*samp*/)
+void AIL_start_3D_sample(H3DSAMPLE )
 {
 }
 
-void AIL_end_3D_sample(H3DSAMPLE /*samp*/)
+void AIL_end_3D_sample(H3DSAMPLE )
 {
 }
 
-S32 AIL_set_3D_provider_preference(HPROVIDER /*lib*/, const char* /*attribute*/, void* /*value*/)
+S32 AIL_set_3D_provider_preference(HPROVIDER , const char* , void* )
 {
     return 0;
 }
 
-void AIL_3D_provider_attribute(HPROVIDER /*lib*/, const char* /*attribute*/, void* /*value*/)
+void AIL_3D_provider_attribute(HPROVIDER , const char* , void* )
 {
 }
 
-M3DRESULT AIL_open_3D_provider(HPROVIDER /*lib*/)
+M3DRESULT AIL_open_3D_provider(HPROVIDER )
 {
     return M3D_NOERR;
 }
 
-void AIL_close_3D_provider(HPROVIDER /*lib*/)
+void AIL_close_3D_provider(HPROVIDER )
 {
 }
 
@@ -933,7 +905,7 @@ void AIL_set_stream_playback_rate(HSTREAM stream, S32 rate)
     pthread_mutex_unlock(&g_audioLock);
 }
 
-HSTREAM AIL_open_stream(HDIGDRIVER /*drvr*/, const char* filename, S32 /*memory_type*/)
+HSTREAM AIL_open_stream(HDIGDRIVER , const char* filename, S32 )
 {
     if (!filename) return 0;
 
@@ -995,18 +967,18 @@ HSTREAM AIL_open_stream(HDIGDRIVER /*drvr*/, const char* filename, S32 /*memory_
     return (HSTREAM)freeSt;
 }
 
-S32 AIL_digital_handle_reacquire(HDIGDRIVER /*drvr*/)
+S32 AIL_digital_handle_reacquire(HDIGDRIVER )
 {
     return 1;
 }
 
-void AIL_digital_handle_release(HDIGDRIVER /*drvr*/)
+void AIL_digital_handle_release(HDIGDRIVER )
 {
 }
 
-H3DSAMPLE AIL_allocate_3D_sample_handle(HPROVIDER /*lib*/)
+H3DSAMPLE AIL_allocate_3D_sample_handle(HPROVIDER )
 {
     return 0;
 }
 
-} // extern "C"
+}

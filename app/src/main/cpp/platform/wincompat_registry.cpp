@@ -1,5 +1,5 @@
-// wincompat_registry.cpp - emulacion del registro de Windows (arte, no emulador):
-// guarda el arbol SOFTWARE\DMA Design Ltd\GTA2\* en fichero persistente bajo storageDir.
+
+
 #include "windows.h"
 #include <types.hpp>
 #include <stdio.h>
@@ -27,7 +27,7 @@ typedef std::map<std::string, ValMap> KeyMap;
 
 pthread_mutex_t g_regLock = PTHREAD_MUTEX_INITIALIZER;
 bool g_regLoaded = false;
-KeyMap g_tree; // "SOFTWARE\DMA Design Ltd\GTA2\Sound" -> valores
+KeyMap g_tree;
 
 std::string normPath(const char* p)
 {
@@ -99,7 +99,7 @@ void regSave()
     rename(tmp, path);
 }
 
-} // namespace
+}
 
 extern "C" {
 
@@ -255,4 +255,4 @@ void G2Platform_SetDebugDword(const char* valueName, unsigned long value)
     pthread_mutex_unlock(&g_regLock);
 }
 
-} // extern "C"
+}

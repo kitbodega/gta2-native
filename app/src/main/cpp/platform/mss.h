@@ -1,6 +1,5 @@
 #pragma once
-// Shim de 3rdParty/mss.h (Miles Sound System) para el port Android.
-// Declara solo lo que el motor usa. La implementacion (stub) vive en mss_stubs.cpp.
+
 #include "wintypes.hpp"
 #include "windows.h"
 #include <stdint.h>
@@ -17,11 +16,11 @@ typedef int8_t    S8;
 typedef uint8_t   U8;
 typedef float     F32;
 
-typedef void* HDIGDRIVER;    // digital driver handle
-typedef void* HSAMPLE;       // sample handle
-typedef void* HSTREAM;       // stream handle
-typedef U32   HPROVIDER;     // 3D provider handle
-typedef U32   HPROENUM;      // enumerator handle
+typedef void* HDIGDRIVER;
+typedef void* HSAMPLE;
+typedef void* HSTREAM;
+typedef U32   HPROVIDER;
+typedef U32   HPROENUM;
 typedef struct h3DPOBJECT { U32 junk; } h3DPOBJECT;
 typedef h3DPOBJECT* H3DPOBJECT;
 typedef H3DPOBJECT H3DSAMPLE;

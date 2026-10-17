@@ -1,7 +1,5 @@
-// Backend de render nativo: OpenGL ES 2.0 + EGL sobre ANativeWindow.
-// Reemplaza el rasterizador software 16bpp del port: el motor entrega quads
-// (screen-space) con UV y el GPU se encarga de clip, perspectiva y escalado
-// nativo, sin upscale 640x480 en CPU.
+
+
 #include "gles_glue.hpp"
 
 #include <android/log.h>
@@ -18,7 +16,6 @@
 
 #define GLES_MAX_VERTS 6144
 
-// Cola de borrados diferidos (se vacia tras el swap en gles_end_frame).
 static std::vector<GLuint> gles_delq;
 
 struct GlesCtx
@@ -41,7 +38,7 @@ struct GlesCtx
     float clearG;
     float clearB;
 
-    // lote de primitivas (mismo tex por flush)
+
     struct BVtx
     {
         float x, y, s, t, w;
@@ -51,8 +48,6 @@ struct GlesCtx
     unsigned curTex;
 };
 
-// Logica del port: 640x480 de video, aspect 4:3 letterboxed dentro de la
-// ventana, centrado (igual que hacia el blit CPU).
 static void gles_compute_view(int winW, int winH, float* ux, float* oz, float* uy, float* ow)
 {
     const float fit = (winW / 640.0f < winH / 480.0f) ? (winW / 640.0f) : (winH / 480.0f);
@@ -233,7 +228,7 @@ void* gles_create(void* anw)
 void gles_destroy(void* ctx)
 {
     if (!ctx) return;
-    gles_delq.clear(); // los ids mueren con el contexto
+    gles_delq.clear();
     GlesCtx* gc = (GlesCtx*)ctx;
     if (gc->program) glDeleteProgram(gc->program);
     if (gc->vbo) glDeleteBuffers(1, &gc->vbo);
@@ -270,7 +265,6 @@ void gles_set_clear_color(void* ctx, float r, float g, float b)
     gc->clearB = b;
 }
 
-// Contador global de frames GLES (para correlacionar logs con frames).
 static volatile int s_frameSeq = 0;
 int gles_frame_seq() { return s_frameSeq; }
 
@@ -308,8 +302,8 @@ void gles_clear_game_rect(void* ctx, int left, int top, int right, int bottom)
     if (!ctx) return;
     GlesCtx* gc = (GlesCtx*)ctx;
 
-    // Rect en juego -> rect en pixels de ventana (letterbox), con eje Y de GL
-    // (de abajo arriba).
+
+
     const float fit = (gc->winW / 640.0f < gc->winH / 480.0f) ? (gc->winW / 640.0f) : (gc->winH / 480.0f);
     const float dw = 640.0f * fit;
     const float dh = 480.0f * fit;
@@ -348,8 +342,6 @@ unsigned gles_upload_texture(void* ctx, int w, int h, const void* rgba)
     return tex;
 }
 
-// Sube datos a un glid EXISTENTE sin borrar/regenerar (los glid referenciados
-// por verts ya encolados nunca pueden invalidarse a mitad de frame).
 int gles_upload_texture_into(void* ctx, unsigned tex, int w, int h, const void* rgba)
 {
     if (!ctx || !tex || !rgba || w <= 0 || h <= 0) return 0;
@@ -357,9 +349,9 @@ int gles_upload_texture_into(void* ctx, unsigned tex, int w, int h, const void* 
     glBindTexture(GL_TEXTURE_2D, tex);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba);
-    // Bilinear: el contenido 640x480 se escala a pantalla (~2.4x) y con
-    // NEAREST se ve en bloques de 2px. GL_LINEAR suaviza el upscale (cada
-    // textura es un glid propio, sin atlas -> no hay sangrado de vecinos).
+
+
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -371,9 +363,6 @@ int gles_upload_texture_into(void* ctx, unsigned tex, int w, int h, const void* 
     return 1;
 }
 
-// Borrado diferido: glDeleteTextures a mitad de frame invalida glids que el
-// batch ya tiene referenciados (bloques que el motor libera al conducir) ->
-// bind de id borrado/reusado = textura undefined (blanca) o de otro sprite.
 void gles_delete_texture(void* ctx, unsigned tex)
 {
     if (!ctx || !tex) return;
@@ -445,9 +434,9 @@ void gles_draw_poly_shadow(void* ctx, unsigned tex, const GlesVertex* v, int nve
     if (!ctx || !v || !tex || (nverts != 3 && nverts != 4)) return;
     GlesCtx* gc = (GlesCtx*)ctx;
 
-    // Aislar el tinte + blend: flush previo (el lote normal se dibuja blanco),
-    // sombra con uTint=(0,0,0,PA) y blend, y flush + reset para no contagiar
-    // al siguiente lote (la pasada de sombra duplica el quad del sprite).
+
+
+
     gles_flush(gc);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -476,7 +465,7 @@ void gles_end_frame(void* ctx)
         if (sSwapErr++ < 10)
             __android_log_print(ANDROID_LOG_ERROR, LOGT, "SWAP ERR %d", (int)eglGetError());
     }
-    // Borrados diferidos: ya con el lote presentado, ninguna referencia activa.
+
     if (!gles_delq.empty())
     {
         glDeleteTextures((GLsizei)gles_delq.size(), gles_delq.data());

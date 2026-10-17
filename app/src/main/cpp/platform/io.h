@@ -1,6 +1,4 @@
 #pragma once
-// Compat de <io.h> del CRT de Windows para Android. Solo implementa las
-// funciones que el motor usa realmente (busqueda de archivos para replay/bik).
 
 #include <stdlib.h>
 

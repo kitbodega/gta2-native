@@ -24,7 +24,7 @@ static void* engineThread(void*)
     __android_log_print(ANDROID_LOG_INFO, LOGT, "engine thread start (WinMain_5E53F0)");
     g_running = true;
 
-    // Sin ventana en el port: HINSTANCE es un stub del .so.
+
     int rc = WinMain_5E53F0((HINSTANCE)1, 0, (LPSTR)"", 1);
     __android_log_print(ANDROID_LOG_INFO, LOGT, "engine thread exit rc=%d", rc);
     g_running = false;

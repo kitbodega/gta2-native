@@ -1,5 +1,5 @@
-// Los STATIC_ASSERT de DmaVideo.hpp verifican el layout IA32 (punteros 4B);
-// en el port solo importan las firmas/funciones, no el size exacto.
+
+
 #ifndef STATIC_ASSERT
 #define STATIC_ASSERT(x, msg)
 #endif
@@ -23,10 +23,10 @@
 #include "char.hpp"
 #include "sharp_bose_0x54.hpp"
 
-extern Fix16 dword_703A38;  // DT global de chars (sprite.cpp:49, nunca asignado en el port)
-extern Fix16 dword_6FD80C;  // DT que recibe Char_B4::Update_545720 (char.cpp:474)
-extern Fix16 dword_6FDAC8;  // colision half radius char (k_dword_6FD868*6)
-extern u8 byte_6FDB51;      // flags de movimiento en state_0_54DDF0
+extern Fix16 dword_703A38;
+extern Fix16 dword_6FD80C;
+extern Fix16 dword_6FDAC8;
+extern u8 byte_6FDB51;
 extern u8 byte_6FDB52;
 
 #include <android/log.h>
@@ -55,17 +55,15 @@ static int gFBH = 480;
 static int gFBStride = 640;
 static std::mutex gVidMutex;
 
-// Contexto GL nativo (dibujado exclusivo del hilo del motor).
 static void* gGlesCtx = 0;
-static ANativeWindow* gGlesWin = 0; // ventana de la que cuelga gGlesCtx (ref propia)
+static ANativeWindow* gGlesWin = 0;
 struct GlesTexRec { unsigned glid; const WORD* palAtUpload; int wAtUpload, hAtUpload; const void* srcAtUpload; unsigned hashAtUpload; };
 static std::map<STexture*, GlesTexRec> gGlesTex;
 static std::set<STexture*> gGlesTexDirty;
 static void* gles_ensure_context();
 
-// Contadores por-frame (reset en beginscene, volcados en flipbuffers).
 static int sFrQuads = 0, sFrTris = 0, sFrZeroUv = 0, sFrBlankTex = 0, sFrStaleTex = 0, sFrClip0 = 0, sFrTriDrawn = 0, sFrShadows = 0;
-// Ultimos flags de la llamada de dibujo (drawtile/drawtilepart/drawquad).
+
 static u32 gsLastDrawFlags = 0;
 
 void G2Platform_SetSurface(void* anw)
@@ -76,13 +74,12 @@ void G2Platform_SetSurface(void* anw)
         old = gSurface;
         gSurface = (ANativeWindow*)anw;
     }
-    // El JNI posee la referencia devuelta por ANativeWindow_fromSurface: se
-    // libera al sustituirla (el motor toma su propia ref al crear el contexto).
+
+
     if (old && old != gSurface)
         ANativeWindow_release(old);
 }
 
-// True if the player ped is inside a vehicle (overlay shows joystick vs arrows).
 extern "C" bool G2Platform_InVehicle()
 {
     if (!gGame_0x40_67E008 || !gGame_0x40_67E008->field_38_orf1) return false;
@@ -99,14 +96,6 @@ void Init_Phi_54_array();
 void Init_Phi_6C_array();
 void Init_trigonometry_tables();
 
-// Funciones/globales ex-winmain.cpp (modulo excluido) que el boot necesita.
-// Definiciones reales completas mas abajo en este mismo archivo.
-
-// ---------------------------------------------------------------------------
-// Globales del motor definidos originalmente en winmain.cpp / dma_video.cpp /
-// gbh_graphics.cpp / NetPlay.cpp (modulos excluidos del port).
-// ---------------------------------------------------------------------------
-
 HINSTANCE gHInstance_708220 = 0;
 char_type gWorkingDir_707F64[652] = {0};
 s32 gGTA2VersionMajor_708280 = 0;
@@ -117,10 +106,6 @@ u32 gLightingDrawFlag_7068F4 = 0;
 char_type gLighting_626A09 = 0;
 s32 window_width_706630 = 640;
 s32 window_height_706B50 = 480;
-
-// ---------------------------------------------------------------------------
-// Bink (video) - stub de la clase + globales.
-// ---------------------------------------------------------------------------
 
 BINK* gBinkHandleSlot2_6F83B0 = 0;
 BINK* gBinkHandleSlot1_6F8168 = 0;
@@ -207,10 +192,6 @@ void __stdcall Bink::OpenSlot1_513560(const char_type* pFileName, HDIGDRIVER a2)
     (void)a2;
 }
 
-// ---------------------------------------------------------------------------
-// NetPlay::GetPlayerName (NetPlay.cpp excluido) + objeto global.
-// ---------------------------------------------------------------------------
-
 struct NetPlay
 {
     void GetPlayerName_521100(wchar_t* Destination, u32 idx);
@@ -229,18 +210,9 @@ void NetPlay::GetPlayerName_521100(wchar_t* Destination, u32 idx)
 
 NetPlay gNetPlay_7071E8;
 
-// ---------------------------------------------------------------------------
-// gbh_graphics / dma_video function-pointer table (apunta a stubs no-op).
-// ---------------------------------------------------------------------------
-
 static SVideo gVidSys_7071D0_storage;
 
 SVideo* gVidSys_7071D0 = &gVidSys_7071D0_storage;
-
-// ---------------------------------------------------------------------------
-// Renderer gbh software (replica semantica de gbh.dll de gta2_re/d3ddll.cpp).
-// Dibuja en el framebuffer RGB565 640x480 que FlipBuffers presenta.
-// ---------------------------------------------------------------------------
 
 struct SGbhImageEntry
 {
@@ -336,14 +308,14 @@ static u32 CC gbh_real_convertcolour(u8 r, u8 g, u8 b)
 static void CC gbh_real_beginscene()
 {
     sFrQuads = 0; sFrTris = 0; sFrZeroUv = 0; sFrBlankTex = 0; sFrStaleTex = 0; sFrClip0 = 0; sFrTriDrawn = 0; sFrShadows = 0;
-    // Limpia el backbuffer al inicio de cada frame para evitar ghosting /
-    // marcas del frame anterior (el port no llama pVid_ClearScreen por frame).
+
+
     if (gFramebuffer)
     {
         std::lock_guard<std::mutex> lock(gVidMutex);
         memset(gFramebuffer, 0, (size_t)gFBH * gFBStride * sizeof(u16));
     }
-    // Render nativo: clear del framebuffer GL + viewport de la ventana.
+
     if (gles_ensure_context())
     {
         gles_begin_frame(gGlesCtx);
@@ -412,7 +384,7 @@ static STexture* CC gbh_real_locktexture(STexture* pTexture)
 static STexture* CC gbh_real_unlocktexture(STexture* pTexture)
 {
     if (!pTexture) return 0;
-    if (gGlesCtx) gGlesTexDirty.insert(pTexture); // datos modificados -> recargar
+    if (gGlesCtx) gGlesTexDirty.insert(pTexture);
     pTexture->field_6_pal_size = 0;
     pTexture->field_8_locked_pixels_ptr = 0;
     pTexture->field_13_flags &= 0xFEu;
@@ -447,13 +419,13 @@ static u32 CC gbh_real_registerpalette(s32 palId, DWORD* pData)
     {
         if (i == 0)
         {
-            *pData = 0; // colour 0 always transparent
+            *pData = 0;
         }
         else if (*pData == 0)
         {
             *pData = 0x10000;
         }
-        pData += 64; // pal data stored in columns not rows
+        pData += 64;
     }
 
     WORD* pAllocatedData = (WORD*)malloc(256 * 2 * sizeof(WORD));
@@ -532,17 +504,10 @@ static s32 CC gbh_real_freeimagetable()
     return 0;
 }
 
-// ---------------------------------------------------------------------------
-// Render nativo: subtitucion del rasterizador software por OpenGL ES 2.0.
-// Los quads/tris se envian con UV perspective-correct ((a*x+b*y+c)/den con
-// den=g*x+h*y+1, la misma homografia que usaba el rasterizador CPU), y el GPU
-// hace clip, filtrado y escalado nativo de la ventana.
-// ---------------------------------------------------------------------------
-
 static void* gles_ensure_context()
 {
-#define GTA2_FORCE_CPU 0 // 1 = forzar rasterizador CPU (diagnostico)
-    if (GTA2_FORCE_CPU) return 0; // AISLAMIENTO: comparar rasterizado CPU
+#define GTA2_FORCE_CPU 0
+    if (GTA2_FORCE_CPU) return 0;
     ANativeWindow* win = 0;
     {
         std::lock_guard<std::mutex> lock(gVidMutex);
@@ -551,17 +516,17 @@ static void* gles_ensure_context()
     }
     if (gGlesCtx)
     {
-        // Misma ventana: contexto valido.
+
         if (win == gGlesWin)
         {
             if (win) ANativeWindow_release(win);
             return gGlesCtx;
         }
-        // La superficie se destruyo (HOME) o cambio (reanudar): el EGL
-        // surface apunta a una ventana muerta -> al reanudar la pantalla se
-        // quedaba negra (solo el overlay se veia). Se destruye el contexto en
-        // el hilo del motor (unico usuario de GL) y las texturas se recargan
-        // perezosamente la proxima vez que se dibujan.
+
+
+
+
+
         __android_log_print(ANDROID_LOG_INFO, LOGT,
             "GLES superficie %p (era %p): recreando contexto",
             (void*)win, (void*)gGlesWin);
@@ -603,7 +568,6 @@ static unsigned fast_content_hash(const BYTE* p, size_t n)
     return h;
 }
 
-// Spread opaque texel colors into transparent neighbors to prevent dark halos with GL_LINEAR filtering.
 static void gles_alpha_bleed(unsigned char* rgba, int w, int h)
 {
     unsigned char* tmp = (unsigned char*)malloc((size_t)w * h * 4);
@@ -669,8 +633,8 @@ static unsigned gles_ensure_texture(STexture* pTex)
                        gGlesTexDirty.find(pTex) == gGlesTexDirty.end();
     if (clean)
     {
-        // El motor puede modificar los pixeles SIN lock/unlock (streaming de
-        // bloques): detecta contenido cambiado y recarga pese al cache "clean".
+
+
         const BYTE* src = (const BYTE*)pTex->field_14_original_pixel_data_ptr;
         const size_t n = pTex->field_18_pPaltData ? (size_t)w * h : (size_t)w * h * 2;
         const unsigned cur = fast_content_hash(src, n);
@@ -683,8 +647,8 @@ static unsigned gles_ensure_texture(STexture* pTex)
                                 it->second.hashAtUpload, cur, it->second.glid, gles_frame_seq());
     }
 
-    // Reusa el glid existente: borrar+regenerar a mitad de frame invalida
-    // ids referenciados por verts ya encolados (texturas undefined / ajenas).
+
+
     const unsigned prevGlid = (it != gGlesTex.end()) ? it->second.glid : 0;
     gGlesTexDirty.erase(pTex);
 
@@ -694,7 +658,7 @@ static unsigned gles_ensure_texture(STexture* pTex)
     int opaque = 0;
     if (pTex->field_18_pPaltData)
     {
-        // 8bpp paleta, filas a stride 256 (igual que el rasterizador CPU)
+
         const WORD* pal = pTex->field_18_pPaltData;
         const BYTE* src = (const BYTE*)pTex->field_14_original_pixel_data_ptr;
         for (int y = 0; y < h; y++)
@@ -704,7 +668,7 @@ static unsigned gles_ensure_texture(STexture* pTex)
             for (int x = 0; x < w; x++)
             {
                 const BYTE idx = row[x];
-                if (idx == 0) continue; // alpha 0 = transparente (color key)
+                if (idx == 0) continue;
                 const WORD p = pal[idx];
                 const u8 r5 = (u8)((p >> 11) & 0x1F), g6 = (u8)((p >> 5) & 0x3F), b5 = (u8)(p & 0x1F);
                 out[x * 4 + 0] = (unsigned char)((r5 << 3) | (r5 >> 2));
@@ -717,7 +681,7 @@ static unsigned gles_ensure_texture(STexture* pTex)
     }
     else
     {
-        // 16bpp RGB555 opaco
+
         const WORD* src16 = (const WORD*)pTex->field_14_original_pixel_data_ptr;
         for (int y = 0; y < h; y++)
         {
@@ -744,14 +708,14 @@ static unsigned gles_ensure_texture(STexture* pTex)
                                 (const void*)pTex->field_14_original_pixel_data_ptr, opaque, w * h, gles_frame_seq());
     }
 
-    // Con GL_LINEAR, rellena los transparentes con color vecino solo si la
-    // textura tiene zonas alfa (sprites); las 16bpp opacas se dejan intactas.
+
+
     if ((size_t)opaque < (size_t)w * h)
         gles_alpha_bleed(rgba, w, h);
 
     unsigned glid = 0;
     if (prevGlid && gles_upload_texture_into(gGlesCtx, prevGlid, w, h, rgba))
-        glid = prevGlid; // mismo id, datos nuevos
+        glid = prevGlid;
     if (!glid)
         glid = gles_upload_texture(gGlesCtx, w, h, rgba);
     free(rgba);
@@ -780,10 +744,10 @@ static GlesQuadCoeffs gles_solve_quad(const Vert order[4])
     GlesQuadCoeffs q;
     q.ok = false;
 
-    // Condicionamiento: centra y escala (x,y) a orden unidad ANTES de
-    // resolver. El motor manda tiles con coordenadas muy grandes (cerca de
-    // la camara); en crudo el solve de float acumula error y devuelve UV
-    // con error de varias repeticiones de la textura -> textura estirada.
+
+
+
+
     float cx = 0, cy = 0;
     for (int i = 0; i < 4; i++) { cx += order[i].x; cy += order[i].y; }
     cx *= 0.25f; cy *= 0.25f;
@@ -827,10 +791,10 @@ static GlesQuadCoeffs gles_solve_quad(const Vert order[4])
     const float F = m[5][8] / m[5][5];
     const float G = m[6][8] / m[6][6], H = m[7][8] / m[7][7];
 
-    // Vuelve a coordenadas crudas: num = A x + B y + Cn', den = G x + H y + 1
-    // con transformacion inversa X=(x-cx)/sc:
-    //   num = A x + B y + (sc*Cn - A*cx - B*cy)
-    //   den = G x + H y + (sc - G*cx - H*cy)
+
+
+
+
     const float K = sc - G * cx - H * cy;
     if (fabsf(K) < 1e-9f) return q;
     q.a = A / K;
@@ -845,11 +809,6 @@ static GlesQuadCoeffs gles_solve_quad(const Vert order[4])
     return q;
 }
 
-// Recorta un poligono (con UV perspective-correct pre-horneada en s/t/w) al
-// viewport logico 640x480. La interpolacion de (x,y,s,t,w) a lo largo de un
-// corte es lineal y exacta: la homografia es lineal en (x,y), asi que u/v del
-// punto de corte (=s/w) es correcta. Evita que el GPU triangule quads con
-// esquinas fuera de pantalla/fold del borde cercano (estiramientos al girar).
 struct GlesClipV { float x, y, s, t, w; };
 
 static int gles_clip_quad_to_view(const GlesVertex in[4], GlesClipV out[16])
@@ -865,7 +824,7 @@ static int gles_clip_quad_to_view(const GlesVertex in[4], GlesClipV out[16])
         cur[i].s = in[i].s; cur[i].t = in[i].t; cur[i].w = in[i].w;
     }
 
-    // 4 planos: x>=xmin, x<=xmax, y>=ymin, y<=ymax
+
     for (int plane = 0; plane < 4; plane++)
     {
         const bool useY = (plane >= 2);
@@ -916,11 +875,6 @@ static int gles_clip_quad_to_view(const GlesVertex in[4], GlesClipV out[16])
     return n;
 }
 
-// Texturizado con perspectiva: el z del motor es el reciproco de profundidad
-// (el RHW del backend D3D original, ver GTA2Hax UpdateVertexW w=z). Se pasa
-// como divisor del shader (uv = st/w) -> los muros/rampas dejan de estirarse.
-// En suelo plano/sprists el z es CONSTANTE por quad -> perspectiva == affine.
-// Con /sdcard/affine.flag presente se fuerza affine (w=1) para A/B.
 static int gles_persp_mode(void)
 {
     static int sMode = -1;
@@ -938,18 +892,10 @@ static int gles_persp_mode(void)
 static float gles_build_w(float z)
 {
     if (!gles_persp_mode()) return 1.0f;
-    // z==z descarta NaN; z<=0 (blits memset 0, detras de camara) -> affine
+
     return (z > 0.0f && z == z) ? z : 1.0f;
 }
 
-// Pesos homograficos por esquina para texturizar un quad SIN pliegue
-// diagonal. La division s/w del shader recorre cada triangulo interpolando
-// (s*w, t*w, w): si w_i = G x_i + H y_i + 1 (denominador de la homografia del
-// quad), entonces s*w y t*w son lineales en (x,y) -> el mapeo del quad entero
-// es la homografia exacta, continua a traves de la diagonal (sin el fold de
-// 2 triangulos affine que hace "bailar" la textura al girar la camara).
-// Guardas: quads casi colineales (den -> 0) o con w que cambia de signo
-// (quad cruzado/detras de camara) caen a affine (w=1) = comportamiento previo.
 static bool gles_quad_w(const Vert order[4], float texW, float texH, float wOut[4])
 {
     GlesQuadCoeffs q = gles_solve_quad(order);
@@ -972,10 +918,6 @@ static bool gles_quad_w(const Vert order[4], float texW, float texH, float wOut[
     return true;
 }
 
-// La pasada de sombra de sprite.cpp (GTA2Hax: drawtile con diff=0xA0000000)
-// llega como un quad duplicado y desplazado de la textura del sprite. Se
-// detecta por su tinte para renderizarlo como silueta oscura con blend en
-// lugar de pintar el sprite dos veces identicas.
 static bool gles_is_shadow(const Vert* p, int n)
 {
     for (int i = 0; i < n; i++)
@@ -991,7 +933,7 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
     const float invW = 1.0f / (float)texW, invH = 1.0f / (float)texH;
     const float hw = 0.5f * invW, hh = 0.5f * invH;
 
-    // DIAG: poligonos con nverts no soportado (se descartan -> huecos)
+
     if (nverts != 3 && nverts != 4)
     {
         static int sPolyN = 0;
@@ -1007,7 +949,7 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
     if (nverts == 3)
     {
         sFrTris++;
-        // DIAG: triangulos con UV fuera de rango (CLAMP -> banda de color plano)
+
         static int sTriUV = 0;
         if (sTriUV < 10)
         {
@@ -1043,11 +985,11 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
     }
     if (nverts != 4) return;
     sFrQuads++;
-    // Sombra: pass duplicado del sprite con tinte 0xA0000000 (silueta oscura).
+
     const bool isShadow = gles_is_shadow(pVerts, 4);
     if (isShadow) sFrShadows++;
 
-    // DIAG: quads altos y estrechos (bandas verticales candidatas)
+
     static int sBandN = 0;
     if (sBandN < 10)
     {
@@ -1071,7 +1013,7 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
         }
     }
 
-    // DIAG: el motor rellena w (rhw D3D) o diff (tinte)?
+
     static int sWDiag = 0;
     if (sWDiag < 10)
     {
@@ -1084,7 +1026,7 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
             pVerts[0].x, pVerts[0].y, pVerts[2].x, pVerts[2].y);
     }
 
-    // DIAG: motor manda UV fuera de rango de textura? (confirma REPEAT)
+
     static int sUVout = 0;
     if (sUVout < 14)
     {
@@ -1104,8 +1046,8 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
         }
     }
 
-    // DIAG: quads visibles con UV toda (0,0) -> muestrean texel (0,0):
-    // si es transparente = hueco negro; si opaco = parche de color plano.
+
+
     {
         bool allZero = true;
         for (int i = 0; i < 4; i++)
@@ -1128,7 +1070,7 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
         }
     }
 
-    // orden convexo por angulo alrededor del centroide (igual criterio que CPU)
+
     const float cx = (pVerts[0].x + pVerts[1].x + pVerts[2].x + pVerts[3].x) * 0.25f;
     const float cy = (pVerts[0].y + pVerts[1].y + pVerts[2].y + pVerts[3].y) * 0.25f;
     int idx[4] = { 0, 1, 2, 3 };
@@ -1147,13 +1089,13 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
     Vert order[4];
     for (int i = 0; i < 4; i++) order[i] = pVerts[idx[i]];
 
-    // GTA2 es un juego 2D isometrico: los u/v llegan por vertice. Se evita la
-    // homografia perspective-correct por esquinas (sobre-ajusta quads casi
-    // colineales y coloca las texturas mal); en su lugar el shader divide la
-    // UV por el w por vertice (=z del motor, reciproco de profundidad), que en
-    // suelo plano es constante (== affine) y en muros/rampas da la
-    // perspectiva correcta. Mapeo affine puro consta en gles_build_w (guardas
-    // z<=0/NaN y flag /sdcard/affine.flag).
+
+
+
+
+
+
+
     bool useAffine = true;
 
     GlesVertex gv[4];
@@ -1168,9 +1110,9 @@ static void gles_emit(STexture* pTex, unsigned glid, Vert* pVerts, s32 nverts)
         gv[i].w = useQuadW ? qw[i] : gles_build_w(order[i].z);
     }
 
-    // DIAG "baila": quads centrales (dentro de la region media de pantalla),
-    // cap 60. Registra u/v por esquina, z por esquina y si el rango UV es un
-    // cuadrante 32x32 o el rango completo 64 (cuadrante roto) por frame.
+
+
+
     {
         static int sDn = 0;
         if (sDn < 60)
@@ -1213,7 +1155,7 @@ mnx, mny, mxx, mxy, texW, quad);
                 sAffN, texW, texH, order[0].x, order[0].y, order[2].x, order[2].y);
     }
 
-    // DIAG: quads gigantes (cubren >35% de la pantalla)
+
     static int sGiantN = 0;
     if (sGiantN < 10)
     {
@@ -1237,7 +1179,7 @@ mnx, mny, mxx, mxy, texW, quad);
         }
     }
 
-    // DIAG: quads con esquinas cerca del horizonte (w minimo) o extremas
+
     static int sWDeg = 0;
     if (sWDeg < 12 && false)
     {
@@ -1258,13 +1200,12 @@ mnx, mny, mxx, mxy, texW, quad);
         }
     }
 
-// DIAG: error de fit del solve en sus propias esquinas (texels)
-    // (deshabilitado al pasar a affine puro)
 
-    // Recorte al viewport logico para no mandar al GPU quads con esquinas
-    // fuera de pantalla (su triangulacion se pliega y estira la textura al
-    // girar la camara). Con recorte, la informacion fuera de pantalla se
-    // descarta y la triangulacion del poligono recortado es correcta.
+
+
+
+
+
     GlesClipV cl[16];
     const int cn = gles_clip_quad_to_view(gv, cl);
     if (cn > 0)
@@ -1284,8 +1225,8 @@ mnx, mny, mxx, mxy, texW, quad);
     }
     else
     {
-        // Solo importan los descartes de quads que INTERSECTAN el viewport
-        // (fuera de pantalla es descarte correcto y normal).
+
+
         float mnx = order[0].x, mxx = order[0].x, mny = order[0].y, mxy = order[0].y;
         for (int i = 1; i < 4; i++)
         {
@@ -1307,9 +1248,8 @@ mnx, mny, mxx, mxy, texW, quad);
         }
     }
 
-    // DIAG bajo demanda: con /sdcard/dump.flag presente, vuelca ~600ms TODOS los
-// quads (bbox, uv, aff, w) con su frame_seq para correlacionar con capturas.
-// El acceso a /sdcard es lento (FUSE): solo se comprueba cada 300ms.
+
+
     static int sDumpOn = 0;
     static struct timespec sDumpStart = {};
     static struct timespec sLastCheck = {};
@@ -1376,10 +1316,6 @@ mnx, mny, mxx, mxy, texW, quad);
     }
 }
 
-// software quad rasteriser: interpolacion bilineal por scanline entre los
-// bordes izquierdo (v0->v3) y derecho (v1->v2). Los quads de GTA2 llegan en
-// orden TL,TR,BR,BL (ovl/DmaVideo); a diferencia del rasterizador de 2
-// triangulos affine, esto no deforma la textura a lo largo de la diagonal.
 static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
 {
     if (!pTexture || !pTexture->field_14_original_pixel_data_ptr)
@@ -1393,7 +1329,7 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
         return;
     }
 
-    // Render nativo: GLES
+
     if (gles_ensure_context())
     {
         const unsigned glid = gles_ensure_texture(pTexture);
@@ -1410,7 +1346,7 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
                 (void*)pTexture->field_18_pPaltData, vertsCount);
     }
 
-    // Fallback CPU (si no hay contexto GL o la textura no pudo subirse)
+
     if (!gFramebuffer) return;
 
     const s32 texW = pTexture->field_E_width;
@@ -1422,10 +1358,10 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
 
     if (vertsCount == 4)
     {
-        // Ordena los 4 vertices por angulo alrededor del centroide para tener
-        // el borde convexo en orden fiable independientemente de como lleguen
-        // (cada vertice conserva su u/v). Robusto ante tiles ordenados
-        // TL/TR/BR/BL o en otro orden.
+
+
+
+
         float cx = (pVerts[0].x + pVerts[1].x + pVerts[2].x + pVerts[3].x) * 0.25f;
         float cy = (pVerts[0].y + pVerts[1].y + pVerts[2].y + pVerts[3].y) * 0.25f;
         int idx[4] = { 0, 1, 2, 3 };
@@ -1444,17 +1380,17 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
         Vert order[4];
         for (int i = 0; i < 4; i++) order[i] = pVerts[idx[i]];
 
-        // Mapeo homografico (perspective-correct) del quad: resuelve
-        // u=(a*x+b*y+c)/(g*x+h*y+1), v=(d*x+e*y+f)/(g*x+h*y+1) a partir de
-        // las 4 esquinas. Evita el artefacto de los 2 triangulos affine.
+
+
+
         float m[8][9];
         const Vert* v = order;
         for (int i = 0; i < 4; i++)
         {
             const float px = v[i].x, py = v[i].y;
             const float u = v[i].u, vv = v[i].v;
-            // fila 2i:   a*px + b*py + c - g*u*px - h*u*py = u
-            // fila 2i+1: d*px + e*py + f - g*v*px - h*v*py = v
+
+
             for (int k = 0; k < 9; k++) m[2 * i][k] = 0.0f;
             for (int k = 0; k < 9; k++) m[2 * i + 1][k] = 0.0f;
             m[2 * i][0] = px;     m[2 * i][1] = py;     m[2 * i][2] = 1.0f;
@@ -1464,7 +1400,7 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
             m[2 * i + 1][6] = -vv * px; m[2 * i + 1][7] = -vv * py;
             m[2 * i + 1][8] = vv;
         }
-        // Gauss-Jordan 8x8
+
         bool affineOk = true;
         for (int col = 0; col < 8; col++)
         {
@@ -1474,7 +1410,7 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
                 if (fabsf(m[r][col]) > fabsf(m[piv][col])) piv = r;
             }
             const float pv = m[piv][col];
-            if (pv == 0.0f) { affineOk = false; break; } // degenerado -> fallback affine
+            if (pv == 0.0f) { affineOk = false; break; }
             if (piv != col)
             {
                 for (int k = 0; k < 9; k++) { float t = m[piv][k]; m[piv][k] = m[col][k]; m[col][k] = t; }
@@ -1489,7 +1425,7 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
         }
         if (!affineOk)
         {
-            // quad sin solucion homografica (p.ej. affine puro): 2 triangulos
+
             const Vert& A = order[0];
             const Vert& B = order[1];
             const Vert& C = order[2];
@@ -1566,7 +1502,7 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
         int ix1 = (int)maxX + 1; if (ix1 > gFBW) ix1 = gFBW;
         int iy1 = (int)maxY + 1; if (iy1 > gFBH) iy1 = gFBH;
 
-        // aristas del borde convexo ordenado (winding consistente)
+
         const float ex0 = p1.x - p0.x, ey0 = p1.y - p0.y;
         const float ex1 = p2.x - p1.x, ey1 = p2.y - p1.y;
         const float ex2 = p3.x - p2.x, ey2 = p3.y - p2.y;
@@ -1601,17 +1537,17 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
 
                 if (pPal)
                 {
-                    // sprites/tiles 8bpp: cada fila del sprite esta a stride 256
-                    // (ver Renderer::SetTexture en DmaVideo.cpp: 256 - w por fila)
+
+
                     const size_t srcStride = 256;
                     BYTE idx = pSrc[(size_t)rw * srcStride + col];
-                    if (idx == 0) continue; // colour 0 transparent
+                    if (idx == 0) continue;
                     row[x] = pPal[idx];
                 }
                 else
                 {
-                    // 16bpp (RGB555) opaco de los frontend .tga: el bit 15 no es
-                    // alpha (queda a 0 en los TGA de GTA2), la imagen es opaca.
+
+
                     WORD px = ((const WORD*)pSrc)[(size_t)rw * texW + col];
                     u8 r5 = (u8)((px >> 10) & 0x1F);
                     u8 g5 = (u8)((px >> 5) & 0x1F);
@@ -1625,7 +1561,7 @@ static void CC gbh_soft_quad(STexture* pTexture, Vert* pVerts, s32 vertsCount)
         return;
     }
 
-    // tri: rasterizador affine de 2 vertices (borde degenerado = linea)
+
     if (vertsCount == 3)
     {
         const Vert& A = pVerts[0];
@@ -1765,7 +1701,6 @@ static s32 CC gbh_real_convertingedge()
     return 0;
 }
 
-// image table (TGA truecolor 16bpp frontend)
 static s32 CC gbh_real_loadimage(SImage* pToLoad)
 {
     if (!pToLoad || !gGbhImageTable) return -1;
@@ -1787,9 +1722,9 @@ static s32 CC gbh_real_loadimage(SImage* pToLoad)
     __android_log_print(ANDROID_LOG_INFO, LOGT, "gbh_LoadImage idx=%d w=%d h=%d", freeIndex,
                         pToLoad->field_C_width, pToLoad->field_E_height);
 
-    // Frontend::Load_tga_4B6520 libera el buffer tras LoadImage: hay que copiar
-    // los datos. Los TGA del frontend son bottom-up (descriptor bit5=0): se
-    // invierten las filas al copiar para quedar orientados correctamente.
+
+
+
     const u32 w = pToLoad->field_C_width;
     const u32 h = pToLoad->field_E_height;
     const BYTE* pSrc = (const BYTE*)&pToLoad->field_12;
@@ -1829,7 +1764,7 @@ static s32 CC gbh_real_blitimage(s32 imageIndex, s32 srcLeft, s32 srcTop, s32 sr
     }
     if (!gGbhImageTable[imageIndex].bLoaded || !gGbhImageTable[imageIndex].field_C_pTexture)
     {
-        // frontend re-loads on -10
+
         __android_log_print(ANDROID_LOG_WARN, LOGT, "gbh_BlitImage: not loaded idx=%d", imageIndex);
         return -10;
     }
@@ -1874,15 +1809,11 @@ static s32 CC vid_stub_checks(SVideo*, s32, s32, s32)
 
 static SVideo* CC vid_stub_self_init(HINSTANCE, u16)
 {
-    // SetMode no hace nada en el stub; el SVideo se devuelve para que
-    // el motor pueda pasarle gVidSys_7071D0 a las llamadas de FlipBuffers.
+
+
     __android_log_print(ANDROID_LOG_INFO, LOGT, "Vid_Init_SYS (real)");
     return &gVidSys_7071D0_storage;
 }
-
-// ---------------------------------------------------------------------------
-// Software renderer 16bpp (RGB565) -> ANativeWindow.
-// ---------------------------------------------------------------------------
 
 static s32 CC vid_real_setdevice(SVideo*, s32)
 {
@@ -1945,7 +1876,7 @@ static inline u16 vid_rgb565(u8 r, u8 g, u8 b)
 
 static s32 CC vid_real_clearscreen(SVideo*, u8 r, u8 g, u8 b, s32 left, s32 top, s32 right, s32 bottom)
 {
-    // Render nativo: borrado GL immediato (scissor) en coordenadas de juego.
+
     if (gGlesCtx)
     {
         gles_set_clear_color(gGlesCtx, r / 255.0f, g / 255.0f, b / 255.0f);
@@ -1982,21 +1913,21 @@ static void vid_copy_to_surface(ANativeWindow* win)
                             buf.width, buf.height, (int)buf.format);
     }
 
-    // Rellena el ancho (o alto) de pantalla manteniendo el aspecto 4:3 del
-    // frame, con escalado fraccional e interpolacion bilineal.
+
+
     const u16* fb = gFramebuffer;
     const int srcW = gFBW, srcH = gFBH;
     int dstW, dstH;
     int scaleFit = (buf.width / srcW < buf.height / srcH) ? (buf.width / srcW) : (buf.height / srcH);
     if (scaleFit >= 3)
     {
-        // Entero grande (3x,4x...) crisp
+
         dstW = srcW * scaleFit;
         dstH = srcH * scaleFit;
     }
     else
     {
-        // Fraccional: llenar el ancho, altura 4:3
+
         dstW = buf.width;
         dstH = (dstW * srcH) / srcW;
         if (dstH > buf.height)
@@ -2006,7 +1937,7 @@ static void vid_copy_to_surface(ANativeWindow* win)
         }
     }
     int ox = (buf.width - dstW) / 2;
-    int oy = (buf.height - dstH) / 2; // centrado
+    int oy = (buf.height - dstH) / 2;
 
     switch (buf.format)
     {
@@ -2121,13 +2052,13 @@ static void CC vid_real_flipbuffers(SVideo*)
     if ((flipCount % 120) == 0)
         __android_log_print(ANDROID_LOG_INFO, LOGT, "Vid_FlipBuffers (real) frames=%ld surface=%s", flipCount,
                             gSurface ? "yes" : "no");
-    // Render nativo: flush del lote y swap EGL.
+
     if (gles_ensure_context())
     {
         gles_end_frame(gGlesCtx);
         return;
     }
-    // Fallback CPU
+
     std::lock_guard<std::mutex> lock(gVidMutex);
     if (!gFramebuffer || !gSurface) return;
     vid_copy_to_surface(gSurface);
@@ -2219,10 +2150,6 @@ T_gbh_LoadImage pgbh_LoadImage = gbh_real_loadimage;
 T_gbh_BlitImage pgbh_BlitImage = gbh_real_blitimage;
 T_gbh_BlitBuffer pgbh_BlitBuffer = gbh_real_blitbuffer;
 
-// ---------------------------------------------------------------------------
-// Funciones de boot ex-winmain.cpp / ex-dma_video.cpp.
-// ---------------------------------------------------------------------------
-
 void __stdcall ErrorMsgBox_5E4EC0(LPCSTR lpText)
 {
     __android_log_print(ANDROID_LOG_ERROR, LOGT, "ErrorMsgBox: %s", lpText ? lpText : "(null)");
@@ -2282,7 +2209,7 @@ void __stdcall sub_5D9690()
 
 void __stdcall do_network_and_local_inputs_4DAF30()
 {
-    // single player: inputs del teclado emulado -> player local
+
     const u32 inputs = gBurgerKing_67F8B0.get_input_bits_4CEAC0();
     if (gGame_0x40_67E008 && gGame_0x40_67E008->field_38_orf1)
     {
@@ -2461,13 +2388,6 @@ u8 sub_4DA850()
 
 void __stdcall Init_keybrd_jolly_and_sound_4DA440();
 
-// ---------------------------------------------------------------------------
-// G2_PlayIntroMovie - reproduce data/Movie/intro.mv (formato G2MV v2) en el
-// framebuffer 640x480 antes del frontend. Header 64B ver=2; por frame:
-// u32 csize + csize bytes DEFLATE(raw) del array de deltas de w*h*2 bytes
-// (csize==0 => frame identico al anterior). Decode: cur[i]=prev[i]+delta[i].
-// ---------------------------------------------------------------------------
-
 struct G2MvHeader
 {
     char magic[4];
@@ -2475,7 +2395,7 @@ struct G2MvHeader
     u8 pixfmt;
     u16 pad;
     u32 w, h, frames, fps, dataSize;
-    u8 pad2[36]; // so struct size = 64 (header del archivo)
+    u8 pad2[36];
 };
 
 static void G2_PlayIntroMovie(const char* path)
@@ -2597,7 +2517,7 @@ static void G2_PlayIntroMovie(const char* path)
             int skip = 0;
             for (int i = 0; i < n; i++)
             {
-                if (ev[i].dwData & 0x80) { skip = 1; break; } // solo tecla pulsada salta
+                if (ev[i].dwData & 0x80) { skip = 1; break; }
             }
             if (skip)
             {
@@ -2635,11 +2555,6 @@ static void G2_PlayIntroMovie(const char* path)
     }
 }
 
-// WinMain_5E53F0 - punto de entrada del motor (ex winmain.cpp, excluido).
-// Replica el flujo de boot real sin ventanas: init globals, debug, input,
-// keybrd/jolly/sound, y corre el loop del frontend.
-// ---------------------------------------------------------------------------
-
 int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
     (void)hPrevInstance;
@@ -2655,7 +2570,7 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
 
     GetGTA2Version_5E5D60(&gGTA2VersionMajor_708280, &gGTA2VersionMajor_708284);
 
-    // Keep the default map/script selection while allowing the normal frontend.
+
     G2Platform_SetDebugString("mapname", "bil.gmp");
     G2Platform_SetDebugString("stylename", "bil.sty");
     G2Platform_SetDebugString("scriptname", "bil.scr");
@@ -2664,21 +2579,21 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
     __android_log_print(ANDROID_LOG_INFO, LOGT, "frontend habilitado (skip_frontend=0)");
 
     gDebug_67D52C.Init_4ABBD0();
-    bSkip_audio_67D6BE = false; // forzar audio: skip_audio=0 aunque el registro lo tuviera en 1
+    bSkip_audio_67D6BE = false;
     __android_log_print(ANDROID_LOG_INFO, LOGT, "skip_audio forzado a 0");
     gLucid_hamilton_67E8E0.sub_4C53D0();
     bDoFrontEnd_626B68 = bSkip_frontend_67D53B == 0;
     __android_log_print(ANDROID_LOG_INFO, LOGT, "skip_frontend leido=%d  bDoFrontEnd=%d",
                         (int)bSkip_frontend_67D53B, (int)bDoFrontEnd_626B68);
-    bDoFrontEnd_626B68 = true; // forzar menu: skip_frontend=0 reg valido el registro
+    bDoFrontEnd_626B68 = true;
 
     getcwd(gWorkingDir_707F64, 256);
 
-    // Sin ventana/inicializacion DirectX en el port (vid/gbh stubs no-op).
+
     Input::DirectInputCreate_4986D0(gHInstance_708220);
 
-    // ---- Input emulado (DirectInput): dispositivos + binding de controles ----
-    // dword_61A9E4 = defaults de controles (en retail vienen en .data del exe).
+
+
     extern int dword_61A9E4[12];
 
     static const int s_defControls[12] = {
@@ -2689,7 +2604,7 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
     gBurgerKing_1_67B990->input_devices_init_498C40(gHInstance_708220);
     __android_log_print(ANDROID_LOG_INFO, LOGT, "input_devices_init OK (kb fake=%d)", (int)(gKeyboardDevice_67B5C0 != 0));
 
-    // Init de video real (framebuffer 640x480 RGB565 -> ANativeWindow).
+
     gVidSys_7071D0 = pVid_Init_SYS(gHInstance_708220, 0);
     if (gVidSys_7071D0)
     {
@@ -2703,9 +2618,9 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
     j_gbh_init_5D7CA0();
     Init_keybrd_jolly_and_sound_4DA440();
 
-    // ---- Menu/frontend normal: el jugador elige mapa y arranca la partida ----
-    // Los crashes anteriores fueron por forzar SkipFrontend/bil aqui: si el
-    // frontend corre con bDoFrontEnd en su estado normal el menu funciona bien.
+
+
+
 
     if (gRegistry_6FF968.Get_Screen_Setting_5870D0("do_play_movie", 0))
     {
@@ -2727,8 +2642,8 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
         }
         else
         {
-            // En el winmain original, WM_SETFOCUS ponía bInputEnabled=1.
-            // Aqui no hay ventana: habilitar input del jugador al iniciar partida.
+
+
             gBurgerKing_67F8B0.field_75344_bInputEnabled = 1;
             InitializeGame_4DA4D0();
         }
@@ -2764,7 +2679,7 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
                     }
                     else
                     {
-                        // sigue procesando el frontend
+
                     }
                 }
                 else
@@ -2773,7 +2688,7 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
                 }
             }
 
-            // cedemos CPU: sin ventanas no hay PeekMessage
+
             struct timespec ts = {0, 1000000};
             nanosleep(&ts, 0);
 
@@ -2789,10 +2704,10 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
             {
                 break;
             }
-            // Single player: al terminar la partida volvemos al frontend,
-            // replicando el switch de winmain sobre field_2C_game_exit_type.
-            // Solo CloseGameImmediately_1 (quit real) cierra el motor; el resto
-            // vuelve al menu con el estado adecuado (continue del while externo).
+
+
+
+
             bool bCloseGame = false;
             if (gGame_0x40_67E008)
             {
@@ -2837,7 +2752,7 @@ int __stdcall WinMain_5E53F0(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR
             bQuit = 0;
             if (!bCloseGame)
             {
-                continue; // volver al while externo: recrea el frontend y el menu
+                continue;
             }
             break;
         }
