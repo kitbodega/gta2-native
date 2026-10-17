@@ -18,13 +18,12 @@ extern "C" bool G2Platform_InVehicle(void);
 #define LOGT "GTA2-ndk"
 
 static std::atomic<bool> g_running{false};
+static std::atomic<bool> g_stop{false};
 
 static void* engineThread(void*)
 {
     __android_log_print(ANDROID_LOG_INFO, LOGT, "engine thread start (WinMain_5E53F0)");
     g_running = true;
-
-
     int rc = WinMain_5E53F0((HINSTANCE)1, 0, (LPSTR)"", 1);
     __android_log_print(ANDROID_LOG_INFO, LOGT, "engine thread exit rc=%d", rc);
     g_running = false;
@@ -46,22 +45,28 @@ Java_com_bodega_gta2_MainActivity_nativeLoadGame(JNIEnv* env, jobject, jstring p
             *slash = 0;
             G2Platform_SetGameDataDir(dir);
             if (chdir(dir) == 0)
+            {
                 __android_log_print(ANDROID_LOG_INFO, LOGT, "chdir OK -> %s", dir);
-            else
-                __android_log_print(ANDROID_LOG_WARN, LOGT, "chdir failed: %s", dir);
+                env->ReleaseStringUTFChars(path, p);
+                return JNI_TRUE;
+            }
+            __android_log_print(ANDROID_LOG_WARN, LOGT, "chdir failed: %s", dir);
         }
         env->ReleaseStringUTFChars(path, p);
     }
-    return JNI_TRUE;
+    return JNI_FALSE;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_bodega_gta2_MainActivity_nativeStart(JNIEnv*, jobject)
 {
-    if (g_running.load()) return JNI_TRUE;
+    bool expected = false;
+    if (!g_running.compare_exchange_strong(expected, true)) return JNI_TRUE;
+    g_stop = false;
     pthread_t tid;
     if (pthread_create(&tid, 0, &engineThread, 0) != 0)
     {
+        g_running = false;
         __android_log_print(ANDROID_LOG_ERROR, LOGT, "pthread_create FAILED");
         return JNI_FALSE;
     }
@@ -73,6 +78,7 @@ extern "C" JNIEXPORT void JNICALL
 Java_com_bodega_gta2_MainActivity_nativeStop(JNIEnv*, jobject)
 {
     __android_log_print(ANDROID_LOG_INFO, LOGT, "stop requested");
+    g_stop = true;
 }
 
 extern "C" JNIEXPORT void JNICALL

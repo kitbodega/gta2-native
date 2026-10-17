@@ -100,19 +100,38 @@ class MainActivity : Activity() {
         if (marker.exists()) return
 
         gameDir.mkdirs()
-        val assetManager = assets
-
-        copyAsset("gta2.exe", File(gameDir, "gta2.exe"))
-
-        val dataSrc = "data"
-        val dataDst = File(gameDir, "data")
-        dataDst.mkdirs()
-        val assetFiles = assetManager.list(dataSrc) ?: return
-        for (name in assetFiles) {
-            copyAsset("$dataSrc/$name", File(dataDst, name))
-        }
+        if (!copyAssetRecursive("", gameDir)) return
 
         marker.writeText("ok")
+    }
+
+    private fun copyAssetRecursive(src: String, dest: File): Boolean {
+        val assetManager = assets
+        val names: List<String> = if (src.isEmpty()) {
+            listOf("gta2.exe", "data")
+        } else {
+            assetManager.list(src)?.toList() ?: return false
+        }
+        for (name in names) {
+            val srcPath = if (src.isEmpty()) name else "$src/$name"
+            val destFile = File(dest, name)
+            if (assetManager.list(srcPath)?.isNotEmpty() == true) {
+                destFile.mkdirs()
+                if (!copyAssetRecursive(srcPath, destFile)) return false
+            } else {
+                try {
+                    assetManager.open(srcPath).use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to extract $srcPath: ${e.message}")
+                    return false
+                }
+            }
+        }
+        return true
     }
 
     private fun copyAsset(assetPath: String, dest: File) {

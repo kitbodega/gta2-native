@@ -429,6 +429,8 @@ static u32 CC gbh_real_registerpalette(s32 palId, DWORD* pData)
     }
 
     WORD* pAllocatedData = (WORD*)malloc(256 * 2 * sizeof(WORD));
+    if (!pAllocatedData) return 0;
+    if (gGbhPals[palId].mPData) free(gGbhPals[palId].mPData);
     gGbhPals[palId].mPOriginalData = pData - 16384;
     gGbhPals[palId].mbLoaded = 1;
     gGbhPals[palId].mPData = pAllocatedData;
